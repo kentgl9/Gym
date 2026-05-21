@@ -192,7 +192,10 @@ const SESSIONS=[
 
 let S={week:1,oneRMs:{squat:90,bench:75,deadlift:130,ohp:40},logs:{},history:{},activeId:null,calYear:new Date().getFullYear(),calMonth:new Date().getMonth(),bodyweight:[{date:new Date().toISOString().slice(0,10),kg:75}]};
 const API_KEY='$2a$10$i7SkHs8gp0kNwollzfvVf.3CPLzPYTGDuxYX5TesScFNvTpJD5OU2';
-let BIN_ID=localStorage.getItem('pb_bin_id')||null;
+let BIN_ID=null;
+function getBinKey(){ return 'pb_bin_id_' + (currentUser||'ken'); }
+function loadBinId(){ BIN_ID = localStorage.getItem(getBinKey())||null; }
+function saveBinId(id){ localStorage.setItem(getBinKey(), id); BIN_ID = id; }
 let saveTimer=null;
 
 function load(){
@@ -200,6 +203,7 @@ function load(){
 }
 
 async function initCloud(){
+  loadBinId();
   if(BIN_ID){
     // fetch existing bin
     try{
@@ -219,13 +223,12 @@ async function initCloud(){
     try{
       const r=await fetch('https://api.jsonbin.io/v3/b',{
         method:'POST',
-        headers:{'Content-Type':'application/json','X-Access-Key':API_KEY,'X-Bin-Name':'gym-tracker','X-Private':'true'},
+        headers:{'Content-Type':'application/json','X-Access-Key':API_KEY,`X-Bin-Name`:`gym-tracker-${currentUser||'ken'}`,'X-Private':'true'},
         body:JSON.stringify(S)
       });
       if(r.ok){
         const j=await r.json();
-        BIN_ID=j.metadata.id;
-        localStorage.setItem('pb_bin_id',BIN_ID);
+        saveBinId(j.metadata.id);
         showSyncStatus('☁️ Opgeslagen');
       }
     }catch(e){showSyncStatus('⚠️ Geen verbinding');}
