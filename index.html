@@ -365,24 +365,36 @@ function renderSession(id){
       ${ex.note?`<div class="ex-note">${ex.note}</div>`:''}
       <div class="sets-wrapper">
         <div class="set-header"><span>#</span><span>kg</span><span>Reps</span><span>RPE</span><span></span></div>`;
-    for(let si=0;si<weekSets;si++){
+    const extraCount = sets[`${ei}_extra_count`] || 0;
+    const totalSetsToShow = weekSets + extraCount;
+    const defKg = load || '';
+    const defReps = weekReps.includes('–') ? weekReps.split('–')[0] : weekReps;
+    for(let si=0;si<totalSetsToShow;si++){
+      const isExtra = si >= weekSets;
       const sk=`${ei}_${si}`;const sv=sets[sk]||{};
-      const defKg=load||'';
-      const defReps=weekReps.includes('–')?weekReps.split('–')[0]:weekReps;
-      // Pre-fill kg and reps if not yet saved by user
-      const filledKg = sv.kg !== undefined ? sv.kg : defKg;
-      const filledReps = sv.reps !== undefined ? sv.reps : defReps;
-      // Auto-save defaults if not yet set
-      if (sv.kg === undefined && defKg) { setVal(ei, si, 'kg', String(defKg), id); }
-      if (sv.reps === undefined && defReps) { setVal(ei, si, 'reps', String(defReps), id); }
-      h+=`<div class="set-row">
-        <div class="set-n">${si+1}</div>
-        <input class="set-inp" type="number" step="0.5" inputmode="decimal" placeholder="${defKg}" value="${filledKg}" oninput="setVal('${ei}','${si}','kg',this.value,'${id}')">
-        <input class="set-inp" type="number" inputmode="numeric" placeholder="${defReps}" value="${filledReps}" oninput="setVal('${ei}','${si}','reps',this.value,'${id}')">
-        <input class="set-inp" type="number" step="0.5" inputmode="decimal" placeholder="${ex.rpe||'?'}" value="${sv.rpe||''}" oninput="setVal('${ei}','${si}','rpe',this.value,'${id}')">
-        <div class="set-chk ${sv.logged?'done':''}" id="chk_${ei}_${si}" onclick="toggleChk('${ei}','${si}','${id}')">✓</div>
-      </div>`;
+      const filledKg = sv.kg !== undefined ? sv.kg : (isExtra ? '' : defKg);
+      const filledReps = sv.reps !== undefined ? sv.reps : (isExtra ? '' : defReps);
+      if (!isExtra && sv.kg === undefined && defKg) { setVal(ei, si, 'kg', String(defKg), id); }
+      if (!isExtra && sv.reps === undefined && defReps) { setVal(ei, si, 'reps', String(defReps), id); }
+      if (isExtra) {
+        h+=`<div class="set-row">
+          <div class="set-n" style="color:var(--orange);font-size:10px;line-height:1.2">E${si-weekSets+1}</div>
+          <input class="set-inp" type="number" step="0.5" inputmode="decimal" placeholder="${defKg}" value="${filledKg}" oninput="setVal('${ei}','${si}','kg',this.value,'${id}')" style="border-color:#3a2200;">
+          <input class="set-inp" type="number" inputmode="numeric" placeholder="${defReps}" value="${filledReps}" oninput="setVal('${ei}','${si}','reps',this.value,'${id}')" style="border-color:#3a2200;">
+          <input class="set-inp" type="number" step="0.5" inputmode="decimal" placeholder="${ex.rpe||'?'}" value="${sv.rpe||''}" oninput="setVal('${ei}','${si}','rpe',this.value,'${id}')" style="border-color:#3a2200;">
+          <div onclick="removeExtraSet('${ei}','${si}','${id}')" style="background:#2a0e0e;border:0.5px solid #5a1a1a;border-radius:7px;padding:10px 8px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;color:var(--red);">✕</div>
+        </div>`;
+      } else {
+        h+=`<div class="set-row">
+          <div class="set-n">${si+1}</div>
+          <input class="set-inp" type="number" step="0.5" inputmode="decimal" placeholder="${defKg}" value="${filledKg}" oninput="setVal('${ei}','${si}','kg',this.value,'${id}')">
+          <input class="set-inp" type="number" inputmode="numeric" placeholder="${defReps}" value="${filledReps}" oninput="setVal('${ei}','${si}','reps',this.value,'${id}')">
+          <input class="set-inp" type="number" step="0.5" inputmode="decimal" placeholder="${ex.rpe||'?'}" value="${sv.rpe||''}" oninput="setVal('${ei}','${si}','rpe',this.value,'${id}')">
+          <div class="set-chk ${sv.logged?'done':''}" id="chk_${ei}_${si}" onclick="toggleChk('${ei}','${si}','${id}')">✓</div>
+        </div>`;
+      }
     }
+    h+=`<button onclick="addExtraSet('${ei}','${id}')" style="display:block;width:100%;margin-top:8px;background:none;border:1px dashed #3a3a3a;color:#555;border-radius:8px;padding:9px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:0.3px;">+ extra set</button>`;
     h+=`</div></div>`;
   });
   h+=`<button class="complete-btn" onclick="completeSession('${id}')">✓ Mark Session Complete</button>`;
