@@ -453,6 +453,67 @@ function makeChart(data,color){
   return svg;
 }
 
+function getWeekVolume(weekNum) {
+  // total kg moved in a week: sum of kg * reps for all logged sets
+  let total = 0;
+  Object.entries(S.logs).forEach(([key, log]) => {
+    if (!key.includes('_w'+weekNum)) return;
+    Object.values(log.sets||{}).forEach(s => {
+      if (s.logged && s.kg && s.reps) total += parseFloat(s.kg) * parseInt(s.reps);
+    });
+  });
+  return Math.round(total);
+}
+
+function getConsistency() {
+  // planned sessions per week = 4 (5 on odd weeks)
+  const totalPlanned = Array.from({length:10},(_,i)=>i+1).reduce((a,w)=>a+(w%2!==0?5:4),0);
+  const done = Object.values(S.logs).filter(l=>l.done).length;
+  const weeksTraining = Math.max(1, S.week);
+  const plannedSoFar = Array.from({length:weeksTraining},(_,i)=>i+1).reduce((a,w)=>a+(w%2!==0?5:4),0);
+  return Math.round((done / plannedSoFar) * 100);
+}
+
+function getBestSets() {
+  // best logged set per main lift this week
+  const best = {squat:null, bench:null, deadlift:null, ohp:null};
+  const liftMap = {'Back Squat':'squat','Bench Press':'bench','Deadlift':'deadlift','Overhead Press':'ohp'};
+  Object.entries(S.logs).forEach(([key, log]) => {
+    if (!key.includes('_w'+S.week)) return;
+    const sessId = key.split('_w')[0];
+    const sess = SESSIONS.find(s=>s.id===sessId);
+    if (!sess) return;
+    Object.entries(log.sets||{}).forEach(([sk, sv]) => {
+      if (!sv.logged || !sv.kg || !sv.reps) return;
+      const ei = parseInt(sk.split('_')[0]);
+      const ex = sess.exercises[ei];
+      if (!ex) return;
+      const lk = liftMap[ex.name];
+      if (!lk) return;
+      const vol = parseFloat(sv.kg) * parseInt(sv.reps);
+      if (!best[lk] || vol > best[lk].vol) {
+        best[lk] = {kg: parseFloat(sv.kg), reps: parseInt(sv.reps), vol};
+      }
+    });
+  });
+  return best;
+}
+
+function getAvgRPE() {
+  // average RPE of last completed session
+  const doneLogs = Object.values(S.logs).filter(l=>l.done && l.sets);
+  if (!doneLogs.length) return null;
+  const last = doneLogs[doneLogs.length-1];
+  const rpes = Object.values(last.sets).filter(s=>s.logged && s.rpe).map(s=>parseFloat(s.rpe));
+  if (!rpes.length) return null;
+  return (rpes.reduce((a,b)=>a+b,0)/rpes.length).toFixed(1);
+}
+
+function getPrevWeekVolume() {
+  if (S.week <= 1) return null;
+  return getWeekVolume(S.week - 1);
+}
+
 function renderProgress(){
   const sessions=Object.values(S.logs).filter(l=>l.done).length;
   const totalSets=Object.values(S.logs).reduce((a,l)=>a+Object.values(l.sets||{}).filter(s=>s.logged).length,0);
@@ -462,12 +523,86 @@ function renderProgress(){
     {key:'deadlift',name:'Deadlift',color:'#ff8844'},
     {key:'ohp',name:'OHP',color:'#44aaff'},
   ];
-  let h=`<h1 style="margin-bottom:18px">Progress</h1>
+
+  const consistency = getConsistency();
+  const thisWeekVol = getWeekVolume(S.week);
+  const prevWeekVol = getPrevWeekVolume();
+  const volDiff = prevWeekVol !== null ? thisWeekVol - prevWeekVol : null;
+  const bestSets = getBestSets();
+  const avgRPE = getAvgRPE();
+
+  // consistency color
+  const cColor = consistency >= 80 ? 'var(--green)' : consistency >= 60 ? 'var(--orange)' : 'var(--red)';
+  const cEmoji = consistency >= 80 ? '🔥' : consistency >= 60 ? '👍' : '⚠️';
+
+  // RPE interpretation
+  let rpeMsg = '';
+  if (avgRPE) {
+    const r = parseFloat(avgRPE);
+    if (r > 9) rpeMsg = '⚠️ Mogelijk overreaching';
+    else if (r >= 8) rpeMsg = '✓ Op schema';
+    else rpeMsg = '↓ Onder verwachting';
+  }
+
+  let h = `<h1 style="margin-bottom:18px">Progress</h1>
+
+    <div class="section-label">Overzicht</div>
     <div class="stat-row">
-      <div class="stat-box"><div class="stat-label">Sessions done</div><div class="stat-val">${sessions}</div></div>
-      <div class="stat-box"><div class="stat-label">Sets logged</div><div class="stat-val">${totalSets}</div></div>
+      <div class="stat-box">
+        <div class="stat-label">Consistentie ${cEmoji}</div>
+        <div class="stat-val" style="color:${cColor}">${consistency}<span class="stat-unit">%</span></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">${sessions} van geplande sessies</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Gem. RPE laatste sessie</div>
+        <div class="stat-val">${avgRPE || '—'}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">${rpeMsg}</div>
+      </div>
     </div>
-    <div class="section-label">Current 1RMs</div>
+
+    <div class="section-label">Volume week ${S.week}</div>
+    <div class="card" style="padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div>
+          <div style="font-size:28px;font-weight:700">${thisWeekVol > 0 ? thisWeekVol.toLocaleString() : '—'}<span style="font-size:14px;color:var(--text2);font-weight:400"> kg</span></div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">totaal verplaatst</div>
+        </div>
+        ${volDiff !== null && thisWeekVol > 0 ? `<div style="text-align:right">
+          <div style="font-size:16px;font-weight:700;color:${volDiff>=0?'var(--green)':'var(--red)'}">
+            ${volDiff>=0?'+':''}${volDiff.toLocaleString()} kg
+          </div>
+          <div style="font-size:11px;color:var(--text3)">vs vorige week</div>
+        </div>` : ''}
+      </div>
+    </div>
+
+    <div class="section-label">Beste set deze week</div>
+    <div class="stat-row">
+      <div class="stat-box">
+        <div class="stat-label" style="color:#e8ff47">Squat</div>
+        <div class="stat-val" style="font-size:18px">${bestSets.squat ? bestSets.squat.kg+'kg' : '—'}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${bestSets.squat ? '× '+bestSets.squat.reps+' reps' : 'nog niet gelogd'}</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label" style="color:#3ddc84">Bench</div>
+        <div class="stat-val" style="font-size:18px">${bestSets.bench ? bestSets.bench.kg+'kg' : '—'}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${bestSets.bench ? '× '+bestSets.bench.reps+' reps' : 'nog niet gelogd'}</div>
+      </div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-box">
+        <div class="stat-label" style="color:#ff8844">Deadlift</div>
+        <div class="stat-val" style="font-size:18px">${bestSets.deadlift ? bestSets.deadlift.kg+'kg' : '—'}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${bestSets.deadlift ? '× '+bestSets.deadlift.reps+' reps' : 'nog niet gelogd'}</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label" style="color:#44aaff">OHP</div>
+        <div class="stat-val" style="font-size:18px">${bestSets.ohp ? bestSets.ohp.kg+'kg' : '—'}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${bestSets.ohp ? '× '+bestSets.ohp.reps+' reps' : 'nog niet gelogd'}</div>
+      </div>
+    </div>
+
+    <div class="section-label">Huidige 1RMs</div>
     <div class="stat-row">
       <div class="stat-box"><div class="stat-label">Squat</div><div class="stat-val">${S.oneRMs.squat}<span class="stat-unit"> kg</span></div></div>
       <div class="stat-box"><div class="stat-label">Bench</div><div class="stat-val">${S.oneRMs.bench}<span class="stat-unit"> kg</span></div></div>
@@ -476,7 +611,8 @@ function renderProgress(){
       <div class="stat-box"><div class="stat-label">Deadlift</div><div class="stat-val">${S.oneRMs.deadlift}<span class="stat-unit"> kg</span></div></div>
       <div class="stat-box"><div class="stat-label">OHP</div><div class="stat-val">${S.oneRMs.ohp}<span class="stat-unit"> kg</span></div></div>
     </div>
-    <div class="section-label">Estimated 1RM – gewichten over tijd</div>`;
+
+    <div class="section-label">Geschatte 1RM trend</div>`;
 
   const hasAny=lifts.some(l=>(S.history[l.key]||[]).length>0);
   if(!hasAny){
