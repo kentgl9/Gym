@@ -119,6 +119,7 @@ svg.linechart { width:100%; overflow:visible; }
   <div id="screen-progress" class="screen"></div>
   <div id="screen-calendar" class="screen"></div>
   <div id="screen-settings" class="screen"></div>
+  <div id="screen-buddy" class="screen"></div>
 </div>
 <div id="login-screen">
   <div class="login-logo">🏋️</div>
@@ -139,6 +140,7 @@ svg.linechart { width:100%; overflow:visible; }
   <button class="nav-btn active" id="nav-home" onclick="go('home')"><span class="nav-icon">🏋️</span>Program</button>
   <button class="nav-btn" id="nav-progress" onclick="go('progress')"><span class="nav-icon">📈</span>Progress</button>
   <button class="nav-btn" id="nav-calendar" onclick="go('calendar')"><span class="nav-icon">📅</span>Calendar</button>
+  <button class="nav-btn" id="nav-buddy" onclick="go('buddy')"><span class="nav-icon">👥</span>Buddy</button>
   <button class="nav-btn" id="nav-settings" onclick="go('settings')"><span class="nav-icon">⚙️</span>Settings</button>
 </nav>
 <script>
@@ -312,7 +314,7 @@ function go(name){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('screen-'+name).classList.add('active');
   const nb=document.getElementById('nav-'+name);if(nb)nb.classList.add('active');
-  ({home:renderHome,progress:renderProgress,calendar:renderCalendar,settings:renderSettings})[name]?.();
+  ({home:renderHome,progress:renderProgress,calendar:renderCalendar,buddy:renderBuddy,settings:renderSettings})[name]?.();
 }
 
 // ── HOME ──────────────────────────────────────────────────────────────────────
@@ -782,6 +784,199 @@ function renderCalendar(){
 }
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
+// ── BUDDY ─────────────────────────────────────────────────────────────────────
+let buddyData = null;
+let buddyBinId = null;
+
+async function fetchBuddyData() {
+  const otherUser = currentUser === 'ken' ? 'romen' : 'ken';
+  const binKey = 'pb_bin_id_' + otherUser;
+  buddyBinId = localStorage.getItem(binKey);
+  if (!buddyBinId) {
+    renderBuddy(null);
+    return;
+  }
+  try {
+    const r = await fetch('https://api.jsonbin.io/v3/b/' + buddyBinId + '/latest', {
+      headers: {'X-Access-Key': API_KEY}
+    });
+    if (r.ok) {
+      const j = await r.json();
+      buddyData = j.record;
+      renderBuddy(buddyData);
+    } else {
+      renderBuddy(null);
+    }
+  } catch(e) {
+    renderBuddy(null);
+  }
+}
+
+function getBuddyLastSession(data) {
+  if (!data || !data.logs) return null;
+  const done = Object.entries(data.logs).filter(([k,v]) => v.done && v.date);
+  if (!done.length) return null;
+  done.sort((a,b) => new Date(b[1].date) - new Date(a[1].date));
+  const [key, log] = done[0];
+  const sessId = key.split('_w')[0];
+  const week = key.split('_w')[1];
+  const sess = SESSIONS.find(s => s.id === sessId);
+  const daysAgo = Math.round((new Date() - new Date(log.date)) / 86400000);
+  const dayStr = daysAgo === 0 ? 'Vandaag' : daysAgo === 1 ? 'Gisteren' : daysAgo + ' dagen geleden';
+  return { sessName: sess ? sess.name + ' · ' + sess.sub : sessId, week, dayStr, date: log.date };
+}
+
+function getBuddyWeek(data) {
+  if (!data) return '—';
+  return data.week || '—';
+}
+
+function makeBuddyChart(myHist, buddyHist, color1, color2) {
+  const all = [...(myHist||[]), ...(buddyHist||[])];
+  if (!all.length) return '';
+  const W=300, H=80, PL=28, PR=8, PT=8, PB=20;
+  const iW=W-PL-PR, iH=H-PT-PB;
+  const allVals = all.map(d=>d.e1rm);
+  const minV=Math.min(...allVals), maxV=Math.max(...allVals);
+  const range=maxV-minV||1;
+  const py=v=>PT+iH-(((v-minV)/range)*iH);
+
+  const makeLine = (hist) => {
+    if (!hist || hist.length < 2) return '';
+    const pts = hist.map((d,i) => `${PL + i*(iW/Math.max(hist.length-1,1))},${py(d.e1rm)}`).join(' ');
+    return pts;
+  };
+
+  const myPts = makeLine(myHist);
+  const buddyPts = makeLine(buddyHist);
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%">`;
+  svg += `<line x1="${PL}" y1="${PT}" x2="${W-PR}" y2="${PT}" stroke="#2a2a2a" stroke-width="0.5"/>`;
+  svg += `<line x1="${PL}" y1="${PT+iH/2}" x2="${W-PR}" y2="${PT+iH/2}" stroke="#2a2a2a" stroke-width="0.5"/>`;
+  if (myPts) svg += `<polyline points="${myPts}" fill="none" stroke="${color1}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  if (buddyPts) svg += `<polyline points="${buddyPts}" fill="none" stroke="${color2}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="4,2"/>`;
+  if (myHist && myHist.length) {
+    const lx = PL + (myHist.length-1)*(iW/Math.max(myHist.length-1,1));
+    svg += `<circle cx="${lx}" cy="${py(myHist[myHist.length-1].e1rm)}" r="3" fill="${color1}"/>`;
+  }
+  if (buddyHist && buddyHist.length) {
+    const lx = PL + (buddyHist.length-1)*(iW/Math.max(buddyHist.length-1,1));
+    svg += `<circle cx="${lx}" cy="${py(buddyHist[buddyHist.length-1].e1rm)}" r="3" fill="${color2}"/>`;
+  }
+  svg += `</svg>`;
+  return svg;
+}
+
+function renderBuddy(data) {
+  const otherUser = currentUser === 'ken' ? 'romen' : 'ken';
+  const otherName = otherUser === 'ken' ? 'Ken' : 'Romen';
+  const myName = currentUser === 'ken' ? 'Ken' : 'Romen';
+  const myColor = '#378ADD';
+  const buddyColor = '#EF9F27';
+
+  const myLast = getBuddyLastSession(S);
+  const buddyLast = data ? getBuddyLastSession(data) : null;
+  const myWeek = S.week || '—';
+  const buddyWeek = getBuddyWeek(data);
+  const myRMs = S.oneRMs || {};
+  const buddyRMs = data ? (data.oneRMs || {}) : {};
+  const myHist = S.history || {};
+  const buddyHist = data ? (data.history || {}) : {};
+
+  const lifts = [
+    {key:'squat', name:'Squat'},
+    {key:'bench', name:'Bench'},
+    {key:'deadlift', name:'Deadlift'},
+    {key:'ohp', name:'OHP'},
+  ];
+
+  let h = `<h1 style="margin-bottom:18px">Buddy</h1>`;
+
+  if (!buddyBinId) {
+    h += `<div class="empty"><div class="empty-icon">👥</div><div>${otherName} heeft nog niet ingelogd. Zodra ${otherName} de app opent, verschijnt zijn data hier automatisch.</div></div>`;
+    document.getElementById('screen-buddy').innerHTML = h;
+    return;
+  }
+
+  if (!data) {
+    h += `<div class="empty"><div class="empty-icon">⏳</div><div>Bezig met laden van ${otherName}'s data...</div></div>`;
+    document.getElementById('screen-buddy').innerHTML = h;
+    return;
+  }
+
+  // Profile cards
+  h += `<div class="section-label">Status</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+    <div class="card" style="padding:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <div style="width:30px;height:30px;border-radius:50%;background:#1a3a5a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:${myColor}">${myName[0]}</div>
+        <span style="font-size:14px;font-weight:600">${myName}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text2)">Week</div>
+      <div style="font-size:22px;font-weight:700;color:${myColor}">${myWeek}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:8px">${myLast ? myLast.dayStr : 'Nog niets gelogd'}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">${myLast ? myLast.sessName : ''}</div>
+    </div>
+    <div class="card" style="padding:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <div style="width:30px;height:30px;border-radius:50%;background:#3a2a00;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:${buddyColor}">${otherName[0]}</div>
+        <span style="font-size:14px;font-weight:600">${otherName}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text2)">Week</div>
+      <div style="font-size:22px;font-weight:700;color:${buddyColor}">${buddyWeek}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:8px">${buddyLast ? buddyLast.dayStr : 'Nog niets gelogd'}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">${buddyLast ? buddyLast.sessName : ''}</div>
+    </div>
+  </div>`;
+
+  // 1RM comparison
+  h += `<div class="section-label">1RM vergelijking</div>
+  <div class="card" style="padding:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;font-size:11px;color:var(--text2);font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid var(--border)">
+      <span></span><span style="text-align:right;color:${myColor}">${myName}</span><span style="text-align:right;color:${buddyColor}">${otherName}</span>
+    </div>
+    ${lifts.map(l => {
+      const myVal = myRMs[l.key] || '—';
+      const buddyVal = buddyRMs[l.key] || '—';
+      const myWins = myVal !== '—' && buddyVal !== '—' && myVal > buddyVal;
+      const buddyWins = myVal !== '—' && buddyVal !== '—' && buddyVal > myVal;
+      return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;padding:8px 0;border-bottom:0.5px solid var(--border)">
+        <span style="font-size:13px;color:var(--text2)">${l.name}</span>
+        <span style="font-size:13px;font-weight:700;text-align:right;color:${myWins?myColor:'var(--text)'}">${myVal}${myVal!=='—'?' kg':''}</span>
+        <span style="font-size:13px;font-weight:700;text-align:right;color:${buddyWins?buddyColor:'var(--text)'}">${buddyVal}${buddyVal!=='—'?' kg':''}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  // e1RM charts
+  const hasAnyHistory = lifts.some(l => (myHist[l.key]||[]).length > 0 || (buddyHist[l.key]||[]).length > 0);
+  if (hasAnyHistory) {
+    h += `<div class="section-label">e1RM trend</div>
+    <div style="display:flex;gap:16px;margin-bottom:8px;font-size:12px;color:var(--text2)">
+      <span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:14px;height:2px;background:${myColor};border-radius:1px"></span>${myName}</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:14px;height:2px;background:${buddyColor};border-radius:1px;opacity:0.7"></span>${otherName}</span>
+    </div>`;
+    lifts.forEach(l => {
+      const mh = myHist[l.key] || [];
+      const bh = buddyHist[l.key] || [];
+      if (!mh.length && !bh.length) return;
+      const myLatest = mh.length ? mh[mh.length-1].e1rm : null;
+      const buddyLatest = bh.length ? bh[bh.length-1].e1rm : null;
+      h += `<div class="card" style="margin-bottom:10px;padding:14px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+          <span style="font-size:13px;font-weight:600;color:var(--text2)">${l.name}</span>
+          <span style="font-size:12px;color:var(--text3)">${myLatest?myLatest+'kg':'—'} vs ${buddyLatest?buddyLatest+'kg':'—'}</span>
+        </div>
+        ${makeBuddyChart(mh, bh, myColor, buddyColor)}
+      </div>`;
+    });
+  }
+
+  h += `<button onclick="fetchBuddyData()" style="display:block;width:100%;background:none;border:0.5px solid var(--border);color:var(--text2);border-radius:var(--r);padding:12px;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;">↻ Verversen</button>`;
+
+  document.getElementById('screen-buddy').innerHTML = h;
+}
+
 function renderSettings(){
   document.getElementById('screen-settings').innerHTML=`
     <h1 style="margin-bottom:18px">Settings</h1>
