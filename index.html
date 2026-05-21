@@ -414,6 +414,16 @@ function toggleChk(ei,si,id){
   save();
 }
 
+function addExtraSet(ei, id) {
+  const key = lk(id);
+  if (!S.logs[key]) return;
+  const sets = S.logs[key].sets;
+  const current = sets[`${ei}_extra_count`] || 0;
+  sets[`${ei}_extra_count`] = current + 1;
+  save();
+  renderSession(id);
+}
+
 function completeSession(id){
   S.logs[lk(id)].done=true;
   S.logs[lk(id)].date=new Date().toISOString().slice(0,10);
