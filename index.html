@@ -414,6 +414,21 @@ function toggleChk(ei,si,id){
   save();
 }
 
+function removeExtraSet(ei, setIndex, id) {
+  const key = lk(id);
+  const sets = S.logs[key].sets;
+  const extraCount = sets[`${ei}_extra_count`] || 0;
+  if (extraCount <= 0) return;
+  // Shift set data down from removed index
+  for (let si = setIndex; si < setIndex + extraCount - 1; si++) {
+    sets[`${ei}_${si}`] = sets[`${ei}_${si+1}`] || {};
+  }
+  delete sets[`${ei}_${setIndex + extraCount - 1}`];
+  sets[`${ei}_extra_count`] = extraCount - 1;
+  save();
+  renderSession(id);
+}
+
 function addExtraSet(ei, id) {
   const key = lk(id);
   if (!S.logs[key]) return;
