@@ -1025,8 +1025,8 @@ function renderSettings(){
     <div class="section-label">Account</div>
     <div class="card">
       <div class="rm-row">
-        <div><div style="font-weight:600">${USERS[currentUser]?.display||'Gebruiker'}</div><div style="font-size:12px;color:var(--text2)">${currentUser}</div></div>
-        <button onclick="sessionStorage.removeItem('gym_user');logout();" style="background:var(--bg4);border:0.5px solid var(--border);color:var(--red);border-radius:var(--r-sm);padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600">Uitloggen</button>
+        <div><div style="font-weight:600">${currentUser==='ken'?'Ken':'Romen'}</div><div style="font-size:12px;color:var(--text2)">Ingelogd</div></div>
+        <button onclick="sessionStorage.removeItem('gym_user');location.reload();" style="background:var(--bg4);border:0.5px solid var(--border);color:var(--accent);border-radius:var(--r-sm);padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600">Wissel gebruiker</button>
       </div>
     </div>
     <div class="section-label">Data</div>
