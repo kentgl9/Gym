@@ -369,10 +369,16 @@ function renderSession(id){
       const sk=`${ei}_${si}`;const sv=sets[sk]||{};
       const defKg=load||'';
       const defReps=weekReps.includes('–')?weekReps.split('–')[0]:weekReps;
+      // Pre-fill kg and reps if not yet saved by user
+      const filledKg = sv.kg !== undefined ? sv.kg : defKg;
+      const filledReps = sv.reps !== undefined ? sv.reps : defReps;
+      // Auto-save defaults if not yet set
+      if (sv.kg === undefined && defKg) { setVal(ei, si, 'kg', String(defKg), id); }
+      if (sv.reps === undefined && defReps) { setVal(ei, si, 'reps', String(defReps), id); }
       h+=`<div class="set-row">
         <div class="set-n">${si+1}</div>
-        <input class="set-inp" type="number" step="0.5" inputmode="decimal" placeholder="${defKg}" value="${sv.kg||''}" oninput="setVal('${ei}','${si}','kg',this.value,'${id}')">
-        <input class="set-inp" type="number" inputmode="numeric" placeholder="${defReps}" value="${sv.reps||''}" oninput="setVal('${ei}','${si}','reps',this.value,'${id}')">
+        <input class="set-inp" type="number" step="0.5" inputmode="decimal" placeholder="${defKg}" value="${filledKg}" oninput="setVal('${ei}','${si}','kg',this.value,'${id}')">
+        <input class="set-inp" type="number" inputmode="numeric" placeholder="${defReps}" value="${filledReps}" oninput="setVal('${ei}','${si}','reps',this.value,'${id}')">
         <input class="set-inp" type="number" step="0.5" inputmode="decimal" placeholder="${ex.rpe||'?'}" value="${sv.rpe||''}" oninput="setVal('${ei}','${si}','rpe',this.value,'${id}')">
         <div class="set-chk ${sv.logged?'done':''}" id="chk_${ei}_${si}" onclick="toggleChk('${ei}','${si}','${id}')">✓</div>
       </div>`;
