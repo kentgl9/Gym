@@ -249,7 +249,44 @@ function showSyncStatus(msg){
 }
 function lk(id){return id+'_w'+S.week;}
 function isDone(id){return !!(S.logs[lk(id)]&&S.logs[lk(id)].done);}
-function calcLoad(ex){const k=RM_LIFTS[ex.name];if(!k||!ex.pct)return null;return Math.round(S.oneRMs[k]*ex.pct/2.5)*2.5;}
+const WEEK_DATA={1: {'squat_strength': [4, 1, '5', 0.775, 7.5, 'Strength set — focus op techniek en explosieve kracht'], 'squat_hyp': [0, 2, '8', 0.7, null, 'Houd rughoek en vorm consistent'], 'ohp': [2, 3, '8', 0.7, null, 'Reset elke rep'], 'deadlift': [4, 3, '4', 0.8, null, 'Conventional of sumo'], 'bench_strength': [4, 1, '3', 0.855, 8.5, 'Top set — laat 1-2 reps in de tank ⚠️ shoulder'], 'bench_hyp': [0, 2, '10', 0.675, null, '1 sec pauze op de borst ⚠️ shoulder'], 'squat_d3': [4, 3, '4', 0.8, null, '']}, 2: {'squat_strength': [4, 1, '5', 0.775, 7.5, 'Strength set'], 'squat_hyp': [0, 2, '8', 0.7, null, ''], 'ohp': [2, 3, '4', 0.8, null, 'Reset elke rep'], 'deadlift': [4, 3, '3', 0.8, null, ''], 'bench_strength': [4, 1, '2', 0.875, 8.0, 'Top set ⚠️ shoulder'], 'bench_hyp': [0, 3, '6', 0.775, null, '⚠️ shoulder'], 'squat_d3': [4, 3, '6', 0.75, null, '']}, 3: {'squat_strength': [4, 1, '8', 0.75, 8.5, 'Strength set'], 'squat_hyp': [0, 2, '6', 0.75, null, ''], 'ohp': [2, 3, '8', 0.725, null, ''], 'deadlift': [4, 4, '2', 0.85, null, ''], 'bench_strength': [3, 1, '6', 0.775, 8.5, 'Top set ⚠️ shoulder'], 'bench_hyp': [0, 2, '8', 0.725, null, '⚠️ shoulder'], 'squat_d3': [4, 4, '4', 0.8, null, '']}, 4: {'squat_strength': [4, 1, '5', 0.775, 7.5, 'Strength set'], 'squat_hyp': [0, 2, '8', 0.7, null, ''], 'ohp': [2, 3, '8', 0.7, null, ''], 'deadlift': [4, 1, '2', 0.9, 9.0, 'Top set'], 'bench_strength': [4, 1, '3', 0.855, 8.5, 'Top set ⚠️ shoulder'], 'bench_hyp': [0, 2, '10', 0.675, null, '⚠️ shoulder'], 'squat_d3': [4, 3, '6', 0.75, null, '']}, 5: {'squat_strength': [4, 1, '3', 0.855, 8.5, 'Strength set'], 'squat_hyp': [0, 2, '4', 0.8, null, ''], 'ohp': [2, 3, '8', 0.75, null, ''], 'deadlift': [4, 3, '3', 0.85, null, ''], 'bench_strength': [3, 1, '4', 0.855, 9.0, 'Top set ⚠️ shoulder'], 'bench_hyp': [0, 2, '6', 0.8, null, '⚠️ shoulder'], 'squat_d3': [4, 3, '6', 0.775, null, '']}, 6: {'squat_strength': [4, 1, '1', 0.925, 9.0, 'Near max — focus!'], 'squat_hyp': [0, 2, '8', 0.7, null, ''], 'ohp': [2, 3, '4', 0.825, null, ''], 'deadlift': [4, 3, '4', 0.8, null, ''], 'bench_strength': [3, 2, '7', 0.775, null, '⚠️ shoulder'], 'bench_hyp': [0, 2, '10', 0.675, null, '⚠️ shoulder'], 'squat_d3': [4, 3, '4', 0.8, null, '']}, 7: {'squat_strength': [4, 1, '3', 0.875, 8.5, 'Strength set'], 'squat_hyp': [0, 2, '2', 0.85, null, ''], 'ohp': [2, 4, '8', 0.7, null, ''], 'deadlift': [4, 1, '3', 0.875, 8.5, 'Top set'], 'bench_strength': [4, 1, '3', 0.875, 9.0, 'Top set ⚠️ shoulder'], 'bench_hyp': [0, 2, '4', 0.8, null, '⚠️ shoulder'], 'squat_d3': [4, 4, '6', 0.775, null, '']}, 8: {'squat_strength': [4, 1, '5', 0.775, 7.5, 'Strength set'], 'squat_hyp': [0, 2, '8', 0.7, null, ''], 'ohp': [2, 3, '8', 0.7, null, ''], 'deadlift': [4, 3, '5', 0.8, null, ''], 'bench_strength': [4, 1, '3', 0.855, 8.5, 'Top set ⚠️ shoulder'], 'bench_hyp': [0, 2, '10', 0.675, null, '⚠️ shoulder'], 'squat_d3': [4, 3, '4', 0.8, null, '']}, 9: {'squat_strength': [4, 1, '2', 0.9, 8.5, 'Near max strength set'], 'squat_hyp': [0, 2, '4', 0.8, null, ''], 'ohp': [2, 3, '6', 0.8, null, ''], 'deadlift': [4, 3, '4', 0.8, null, ''], 'bench_strength': [4, 1, '2', 0.9, 9.0, 'Near max ⚠️ shoulder'], 'bench_hyp': [0, 2, '2', 0.875, null, '⚠️ shoulder'], 'squat_d3': [4, 3, '4', 0.825, null, '']}, 10: {'squat_strength': [4, 1, 'AMRAP', 0.9, 9.5, 'MAX EFFORT — zo veel reps als mogelijk'], 'squat_hyp': [0, 2, '8', 0.7, null, ''], 'ohp': [2, 3, '10', 0.7, 6.0, 'Deload — lekker makkelijk'], 'deadlift': [4, 1, 'AMRAP', 0.9, 9.5, 'MAX EFFORT'], 'bench_strength': [4, 1, 'AMRAP', 0.9, 9.5, 'MAX EFFORT ⚠️ shoulder'], 'bench_hyp': [0, 2, '6', 0.8, null, '⚠️ shoulder'], 'squat_d3': [4, 3, '4', 0.8, null, '']}};
+
+function getWeekEx(sessionId, exIndex) {
+  const w = WEEK_DATA[S.week];
+  if (!w) return null;
+  const map = {
+    'd1': ['squat_strength','squat_hyp','ohp',null,null,null],
+    'd2': ['deadlift','bench_strength','bench_hyp',null,null,null,null],
+    'd3': ['squat_d3',null,null,null,null],
+  };
+  const keys = map[sessionId];
+  if (!keys || !keys[exIndex]) return null;
+  return w[keys[exIndex]] || null;
+}
+
+function calcLoad(ex, sessionId, exIndex) {
+  // Try week-specific data first
+  const we = sessionId ? getWeekEx(sessionId, exIndex) : null;
+  const pct = we ? we[3] : ex.pct;
+  const k = RM_LIFTS[ex.name];
+  if (!k || !pct) return null;
+  return Math.round(S.oneRMs[k] * pct / 2.5) * 2.5;
+}
+
+function getWeekReps(ex, sessionId, exIndex) {
+  const we = sessionId ? getWeekEx(sessionId, exIndex) : null;
+  return we ? String(we[2]) : ex.reps;
+}
+
+function getWeekSets(ex, sessionId, exIndex) {
+  const we = sessionId ? getWeekEx(sessionId, exIndex) : null;
+  return we ? we[1] : ex.sets;
+}
+
+function getWeekNote(ex, sessionId, exIndex) {
+  const we = sessionId ? getWeekEx(sessionId, exIndex) : null;
+  return we ? we[6] : ex.note;
+}
 function rpeClass(r){if(!r)return '';if(r<=7.5)return 'rpe-lo';if(r<=8.5)return 'rpe-md';return 'rpe-hi';}
 
 function go(name){
@@ -311,7 +348,9 @@ function renderSession(id){
       <h1 style="font-size:21px">${sess.name}: ${sess.sub}</h1>
     </div>`;
   sess.exercises.forEach((ex,ei)=>{
-    const load=calcLoad(ex);
+    const load=calcLoad(ex,sess.id,ei);
+    const weekReps=getWeekReps(ex,sess.id,ei);
+    const weekSets=getWeekSets(ex,sess.id,ei);
     h+=`<div class="ex-card">
       <div class="ex-header">
         <div class="ex-name">${ex.name}</div>
@@ -319,17 +358,17 @@ function renderSession(id){
       </div>
       <div class="ex-meta">
         ${ex.warmup>0?`<span style="color:var(--text3)">${ex.warmup} warm-up →</span>`:''}
-        <span>${ex.sets} &times; ${ex.reps}</span>
+        <span>${weekSets} &times; ${weekReps}</span>
         <span style="color:var(--text3)">&middot; ${ex.rest}</span>
         ${ex.rpe?`<span class="rpe ${rpeClass(ex.rpe)}">RPE ${ex.rpe}</span>`:''}
       </div>
       ${ex.note?`<div class="ex-note">${ex.note}</div>`:''}
       <div class="sets-wrapper">
         <div class="set-header"><span>#</span><span>kg</span><span>Reps</span><span>RPE</span><span></span></div>`;
-    for(let si=0;si<ex.sets;si++){
+    for(let si=0;si<weekSets;si++){
       const sk=`${ei}_${si}`;const sv=sets[sk]||{};
       const defKg=load||'';
-      const defReps=ex.reps.includes('–')?ex.reps.split('–')[0]:ex.reps;
+      const defReps=weekReps.includes('–')?weekReps.split('–')[0]:weekReps;
       h+=`<div class="set-row">
         <div class="set-n">${si+1}</div>
         <input class="set-inp" type="number" step="0.5" inputmode="decimal" placeholder="${defKg}" value="${sv.kg||''}" oninput="setVal('${ei}','${si}','kg',this.value,'${id}')">
