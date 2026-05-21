@@ -19,7 +19,7 @@ body {
   background:var(--bg); color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;
   font-size:15px; max-width:430px; margin:0 auto;
-  min-height:100vh; padding-bottom:120px;
+  min-height:100vh; padding-bottom:160px;
 }
 .nav {
   position:fixed; bottom:0; left:0; right:0;
@@ -173,8 +173,77 @@ const SESSIONS=[
 ];
 
 let S={week:1,oneRMs:{squat:90,bench:75,deadlift:130,ohp:40},logs:{},history:{},activeId:null,calYear:new Date().getFullYear(),calMonth:new Date().getMonth()};
-function load(){try{const d=localStorage.getItem('pb2');if(d)Object.assign(S,JSON.parse(d));}catch(e){}}
-function save(){try{localStorage.setItem('pb2',JSON.stringify(S));}catch(e){}}
+const API_KEY='$2a$10$i7SkHs8gp0kNwollzfvVf.3CPLzPYTGDuxYX5TesScFNvTpJD5OU2';
+let BIN_ID=localStorage.getItem('pb_bin_id')||null;
+let saveTimer=null;
+
+function load(){
+  try{const d=localStorage.getItem('pb2');if(d)Object.assign(S,JSON.parse(d));}catch(e){}
+}
+
+async function initCloud(){
+  if(BIN_ID){
+    // fetch existing bin
+    try{
+      const r=await fetch('https://api.jsonbin.io/v3/b/'+BIN_ID+'/latest',{
+        headers:{'X-Access-Key':API_KEY}
+      });
+      if(r.ok){
+        const j=await r.json();
+        Object.assign(S,j.record);
+        localStorage.setItem('pb2',JSON.stringify(S));
+        showSyncStatus('☁️ Geladen');
+        renderHome();
+      }
+    }catch(e){showSyncStatus('⚠️ Offline');}
+  } else {
+    // create new bin
+    try{
+      const r=await fetch('https://api.jsonbin.io/v3/b',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Access-Key':API_KEY,'X-Bin-Name':'gym-tracker','X-Private':'true'},
+        body:JSON.stringify(S)
+      });
+      if(r.ok){
+        const j=await r.json();
+        BIN_ID=j.metadata.id;
+        localStorage.setItem('pb_bin_id',BIN_ID);
+        showSyncStatus('☁️ Opgeslagen');
+      }
+    }catch(e){showSyncStatus('⚠️ Geen verbinding');}
+  }
+}
+
+async function cloudSave(){
+  if(!BIN_ID)return;
+  try{
+    const r=await fetch('https://api.jsonbin.io/v3/b/'+BIN_ID,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','X-Access-Key':API_KEY},
+      body:JSON.stringify(S)
+    });
+    if(r.ok)showSyncStatus('☁️ Opgeslagen');
+    else showSyncStatus('⚠️ Fout bij opslaan');
+  }catch(e){showSyncStatus('⚠️ Offline');}
+}
+
+function save(){
+  try{localStorage.setItem('pb2',JSON.stringify(S));}catch(e){}
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(cloudSave,1500);
+  showSyncStatus('↑ Bezig...');
+}
+
+function showSyncStatus(msg){
+  let el=document.getElementById('sync-status');
+  if(!el){
+    el=document.createElement('div');
+    el.id='sync-status';
+    el.style.cssText='position:fixed;top:12px;right:12px;font-size:11px;color:#888;z-index:9998;background:#1a1a1a;padding:4px 8px;border-radius:6px;border:0.5px solid #333;';
+    document.body.appendChild(el);
+  }
+  el.textContent=msg;
+}
 function lk(id){return id+'_w'+S.week;}
 function isDone(id){return !!(S.logs[lk(id)]&&S.logs[lk(id)].done);}
 function calcLoad(ex){const k=RM_LIFTS[ex.name];if(!k||!ex.pct)return null;return Math.round(S.oneRMs[k]*ex.pct/2.5)*2.5;}
@@ -471,7 +540,7 @@ function renderSettings(){
     </div>`;
 }
 
-load();renderHome();
+load();renderHome();initCloud();
 </script>
 </body>
 </html>
