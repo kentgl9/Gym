@@ -120,6 +120,28 @@ svg.linechart { width:100%; overflow:visible; }
   <div id="screen-calendar" class="screen"></div>
   <div id="screen-settings" class="screen"></div>
 </div>
+<div id="login-screen">
+  <div class="login-logo">🏋️</div>
+  <div class="login-title">Nippard 4×</div>
+  <div class="login-sub">Powerbuilding Tracker</div>
+  <div id="login-step-1" style="width:100%">
+    <button class="login-user-btn" onclick="selectUser('kent')">
+      <span style="font-size:28px">👤</span>
+      <div><div style="font-weight:700">Kent</div><div style="font-size:12px;color:var(--text2)">kentgl9</div></div>
+    </button>
+    <button class="login-user-btn" onclick="selectUser('romen')">
+      <span style="font-size:28px">👤</span>
+      <div><div style="font-weight:700">Romen</div><div style="font-size:12px;color:var(--text2)">romen</div></div>
+    </button>
+  </div>
+  <div id="login-step-2" style="width:100%;display:none">
+    <div id="login-selected-name" style="font-size:18px;font-weight:700;margin-bottom:20px;text-align:center"></div>
+    <input class="login-inp" type="password" id="login-pw" placeholder="Wachtwoord" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">Inloggen</button>
+    <div class="login-error" id="login-err"></div>
+    <button onclick="document.getElementById('login-step-1').style.display='block';document.getElementById('login-step-2').style.display='none';document.getElementById('login-pw').value='';document.getElementById('login-err').textContent='';" style="background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;margin-top:16px;width:100%;text-align:center;">← Terug</button>
+  </div>
+</div>
 <nav class="nav">
   <button class="nav-btn active" id="nav-home" onclick="go('home')"><span class="nav-icon">🏋️</span>Program</button>
   <button class="nav-btn" id="nav-progress" onclick="go('progress')"><span class="nav-icon">📈</span>Progress</button>
@@ -785,16 +807,23 @@ function renderSettings(){
         </div>`).join('')}
       ${(S.bodyweight||[]).length===0?'<div style="color:var(--text3);font-size:13px">Nog geen metingen</div>':''}
     </div>
-    <div class="section-label">Blessure</div>
+    ${currentUser !== 'romen' ? `<div class="section-label">Blessure</div>
     <div class="card" style="color:var(--orange);font-size:13px;line-height:1.7">
       ⚠️ Herstellende van sleutelbeenoperatie. Oefeningen met ⚠️ vereisen extra voorzichtigheid. Druk de RPE niet op drukoefeningen tot de schouder stabiel aanvoelt.
-    </div>
+    </div>` : ''}
     <div class="section-label">Programma</div>
     <div class="card">
       <div class="rm-row"><div>Atleet</div><div style="color:var(--text2);font-size:13px">Man, 35 · ${(S.bodyweight&&S.bodyweight.length?S.bodyweight[S.bodyweight.length-1].kg:'75')} kg</div></div>
       <div class="rm-row"><div>Programma</div><div style="color:var(--text2);font-size:13px">Nippard 4×</div></div>
       <div class="rm-row"><div>Blokduur</div><div style="color:var(--text2);font-size:13px">10 weken</div></div>
       <div class="rm-row"><div>Deloadweken</div><div style="color:var(--text2);font-size:13px">5 &amp; 10</div></div>
+    </div>
+    <div class="section-label">Account</div>
+    <div class="card">
+      <div class="rm-row">
+        <div><div style="font-weight:600">${USERS[currentUser]?.display||'Gebruiker'}</div><div style="font-size:12px;color:var(--text2)">${currentUser}</div></div>
+        <button onclick="sessionStorage.removeItem('gym_user');logout();" style="background:var(--bg4);border:0.5px solid var(--border);color:var(--red);border-radius:var(--r-sm);padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600">Uitloggen</button>
+      </div>
     </div>
     <div class="section-label">Data</div>
     <div class="card">
@@ -805,7 +834,88 @@ function renderSettings(){
     </div>`;
 }
 
-load();renderHome();initCloud();
+// ── AUTH ─────────────────────────────────────────────────────────────────────
+const USERS = {
+  kent:  { password: 'gym',  binKey: 'pb2',       display: 'Kent' },
+  romen: { password: 'gym',  binKey: 'pb2_romen',  display: 'Romen' },
+};
+const BIN_IDS = {
+  kent:  '$2a$10$i7SkHs8gp0kNwollzfvVf.3CPLzPYTGDuxYX5TesScFNvTpJD5OU2',
+  romen: '$2a$10$i7SkHs8gp0kNwollzfvVf.3CPLzPYTGDuxYX5TesScFNvTpJD5OU2',
+};
+
+let currentUser = null;
+let selectedUser = null;
+
+function selectUser(u) {
+  selectedUser = u;
+  document.getElementById('login-step-1').style.display = 'none';
+  document.getElementById('login-step-2').style.display = 'block';
+  document.getElementById('login-selected-name').textContent = USERS[u].display;
+  setTimeout(() => document.getElementById('login-pw').focus(), 100);
+}
+
+function doLogin() {
+  const pw = document.getElementById('login-pw').value;
+  const user = USERS[selectedUser];
+  if (!user || pw !== user.password) {
+    document.getElementById('login-err').textContent = 'Verkeerd wachtwoord';
+    return;
+  }
+  currentUser = selectedUser;
+  sessionStorage.setItem('gym_user', currentUser);
+  // Switch localStorage key per user
+  const storageKey = user.binKey;
+  // Override load/save to use user-specific key
+  window._storageKey = storageKey;
+  document.getElementById('login-screen').style.display = 'none';
+  // Remove injury note for romen
+  if (currentUser === 'romen') {
+    S.showInjury = false;
+  } else {
+    S.showInjury = true;
+  }
+  load();
+  renderHome();
+  initCloud();
+  // Show username in settings
+  document.title = 'Nippard 4× — ' + user.display;
+}
+
+function logout() {
+  currentUser = null;
+  selectedUser = null;
+  S = {week:1,oneRMs:{squat:90,bench:75,deadlift:130,ohp:40},logs:{},history:{},activeId:null,calYear:new Date().getFullYear(),calMonth:new Date().getMonth(),bodyweight:[{date:new Date().toISOString().slice(0,10),kg:75}]};
+  document.getElementById('login-pw') && (document.getElementById('login-pw').value = '');
+  document.getElementById('login-step-1').style.display = 'block';
+  document.getElementById('login-step-2').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+// Override load/save to be user-aware
+const _origLoad = load;
+const _origSave = save;
+
+function load() {
+  const key = window._storageKey || 'pb2';
+  try { const d = localStorage.getItem(key); if(d) Object.assign(S, JSON.parse(d)); } catch(e) {}
+}
+function save() {
+  const key = window._storageKey || 'pb2';
+  try { localStorage.setItem(key, JSON.stringify(S)); } catch(e) {}
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(cloudSave, 1500);
+  showSyncStatus('↑ Bezig...');
+}
+
+// Check if already logged in this session
+const sessionUser = sessionStorage.getItem('gym_user');
+if (sessionUser && USERS[sessionUser]) {
+  selectUser(sessionUser);
+  doLogin();
+} else {
+  // just show login, don't auto-init
+}initCloud();
 </script>
 </body>
 </html>
